@@ -1,0 +1,3688 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{algpascal}
+\usepackage{tikz}
+\usepackage{enumerate}
+\usepackage{pgf-pie}
+\usepackage{pgfplots}
+\usepackage{pgfplotstable}
+\usepackage{caption}
+\usepackage{caratula}
+\usepackage{graphicx}
+\graphicspath{ {src/Imagenes/} }
+
+
+
+\pgfplotsset{compat=newest}
+
+
+% Title Page
+\title{}
+\author{}
+\addtolength{\oddsidemargin}{-.95in}
+\addtolength{\evensidemargin}{-.95in}
+\addtolength{\textwidth}{1.75in}
+
+\addtolength{\topmargin}{-.9in}
+\addtolength{\textheight}{1.5in}
+\setlength{\parindent}{0pt}
+\begin{document}
+       
+       
+        \materia{Organización del computador II} % obligatorio
+        \submateria{Primer Cuatrimestre de 2015} % opcional
+        \titulo{Trabajo practico 2} % obligatorio
+        \subtitulo{SIMD} % opcional
+        \grupo{Grupo Monkey Island} % opcional
+       
+        \integrante{Integrante Ignacio Rodriguez}{797/13}{igna\_nacho286@hotmail.com} % obligatorio
+        \integrante{Integrante Uriel Fadel}{ 104/14 }{urielfadel@gmail.com} % obligatorio
+        \integrante{Integrante Nicolás Mastropasqua}{828/13}{me.nicolas7@gmail.com} % obligatorio
+       
+       
+        \maketitle
+        % compilar 2 veces para actualizar las referencias
+        \tableofcontents
+       
+        \pagebreak
+        \section{Introducción:}
+       
+        Los procesadores con arquitectura x86-64 ofrecen una extensión que implementa el método SIMD (Single Instruction Multiple Data) .
+        En particular nuestro trabajo se basa en la utilización del conjunto de instrucciones provistas por SSE.
+        El propósito es poder analizar el rendimiento de estas operaciones aplicadas en algoritmos de procesamiento de imágenes BMP, obteniendo así,  conclusiones sobre la eficiencia de
+        los mismos e identificando los factores que los limitan o mejoran. Para ello, se desarrollaron tres filtros diferentes , implementando ,en lenguaje ensamblador, dos formas distintas
+        de procesar los píxeles en cada uno.
+        A saber, los filtros realizados son: Mezcla de dos imágenes(merge), suavizado o desenfoque (blur), suma de  componentes de saturación,luminosidad y tono a una imagen,
+        convirtiéndola previamente del espacio RGB a HSL para efectuar los cálculos y devolviéndola finalmente en su espacio original.
+        \section{Métodos y materiales:}
+       
+        Para poder comparar el rendimiento de las distintas implementaciones, fue necesario adoptar una medida precisa que de  cuenta de la situaci\'on. Como el tiempo de ejecuci\'on de las
+        implementaciones es relativamente bajo, se medirán la cantidad de ciclos que se vieron involucrados desde el comienzo hasta el fin del algoritmo. Se nos sugiri\'o la utilizaci\'on de
+        la instrucción de assembler rdtsc para obtener el valor del  Time Stamp Counter(TSC).La misma devuelve los ciclos que transcurrieron desde el comienzo de la ejecuci\'on del
+        programa principal. Tomando la diferencia entre el comienzo y el fin de la llamada a una funci\'on de filtro , obtuvimos el valor real que le tom\'o al procesador ejecutar un algoritmo
+        dado.
+        Sin embargo, el tiempo que tarda la ejecuci\'on de un algoritmo ,bajo un mismo sistema, no es siempre el mismo. Esto se debe a las posibles interrupciones que pueden ocurrir en
+        cualquier momento, bifurcando la ejecuci\'on de nuestro programa y haciendo que la medici\'on considere tiempos mas elevados. Es decir, el ruido del sistema operativo afecta
+        considerablemente el análisis. No solo eso, sino que la variabilidad en la frecuencia de los procesadores modernos puede también afectar a las muestras. Aquellas que representen
+        un valor relativamente elevado se las cataloga como outliers. Referirse a sect. Métodos y Materiales, para mas información.
+        Ante esta situaci\'on, se opto por un protocolo de medici\'on , ver sect. Protocolo de medición abajo, para intentar filtrar las muestras que no se corresponden con la ejecuci\'on normal del algoritmo.
+        Además, los experimentos se corrieron de cada filtro se corrieron íntegramente bajo las mismas computadoras,ver sect. abajo.
+        Para ver las imágenes utilizadas, referirse a la sección de imágenes al final del informe.
+       
+       
+        \subsection{Protocolo de medición:}
+       
+        Debido a la presencia de outliers, por lo mencionado anteriormente, es menester adoptar un protocolo para evitar introducir ruido en mediciones de performance y conseguir mayor
+        precisión. Para ello se decidi\'o lo siguiente:\\
+       
+        \begin{enumerate}
+                \item Obtener un conjunto de muestras, 1000 en nuestro caso, y tomar la media aritm\'etica
+                \item Calcular la varianza
+                \item Calcular el desvío estándar
+                \item Calcular un nuevo promedio tomando las muestras en el intervalo (promedio – desvío*k, promedio +desvío*k).(Con k una constante decimal que se mantuvo en 1.5)
+                \item Calcular la varianza y desv\'io estándar para el nuevo promedio
+               
+        \end{enumerate}
+        El valor resultante es \emph{la magnitud que se tomará como dato para los gráficos}, que representa cuanto  tardo la ejecuci\'on promedio ,con ciertos parámetros, de una implementaci\'on\\
+       
+       
+        \subsection{Control de frecuencia , medio de ejecuci\'on y configuración del sistema:}
+       
+        Para el caso de merge, se utilizo una notebook personal con un procesador
+        Intel Core i5-4210U CPU @ 1.70GHz, con la frecuencia de trabajo controlada como se indicara mas abajo. Para los dos restantes se utilizaron otras dos computadoras del laboratorio TURING , ambas con core i5.
+        En todos los casos, los test se corrieron con ningún otro programa de usuario abierto, excepto las terminales. El porcentaje de uso del cpu siempre varió entre el 90$\%$ y el $100\%$
+        (para uno de los cores, aquel que ,según lo que suponemos, estaba manejando el hilo de nuestro proceso).
+        Para controlar la frecuencia del procesador, se recurri\'o a una utilidad de Linux llamada cpufreq.
+        Es posible especificar distintos modos de “gobernadores” para manejarla. Entre ellas, seleccionamos la de performance que fija la frecuencia máxima del procesador.\\
+        \emph{cpufreq-set -coreNumber -g performance}
+       
+       
+        \section{Experimentaciones con filtro Merge:}
+        El filtro propiamente dicho funciona ,básicamente, atenuando las componentes de una imagen por sobre la otra, obteniendo as\'i una mezcla entre ambas.
+        La funci\'on recibe, entro otros par\'ametros, un valor de punto flotante entre cero y uno que determinara en que porcentaje una imagen resultara mas dominante que la otra.
+        A continuación se detallas los dos algoritmos que implementan a Merge.\\
+       
+       
+        \subsection{Algoritmo para la implementaci\'on alpha:}
+       
+        La funci\'on se invoca con cinco par\'ametros: el ancho y el alto de la imagen en píxeles, un puntero a la imagen1 , otro a la imágenes y un valor de punto flotante. Cada uno de estos se recibe en edi, esi, rdx,  rcx y xmm0 respectivamente.
+        \\
+       
+        \emph{C\'omputos previos:}\\
+       
+        Luego de armar el stack frame,  \emph{computamos el total de iteraciones que realizara el ciclo que opere con la imagen}. Esto es, $w*h/4$ pues en cada iteraci\'on se procesan 4 píxeles.
+        Es necesario copiar el par\'ametro de punto flotante que se encuentra en la parte baja de $xmm0$ a el resto del registro.\\
+        Para esto, se realizan las siguientes operaciones: \\
+       
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Extracto}
+                \caption{Carga del parámetro value en xmm15}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                       
+                        \State $addss$ xmm15,xmm0                      
+                        \State $pslldq$ xmm15,4                        
+                        \State $addss$ xmm15,xmm0                
+                        \State $pslldq$ xmm15,4        
+                        \State $addss$ xmm15,xmm0              
+                        \State $pslldq$ xmm15,4        
+                        \State $addss$ xmm15,[uno]             
+                \end{algorithmic}
+        \end{algorithm}
+       
+        \vspace{5mm}
+        %dibujito de 1
+        1. \hspace{1mm}
+        \begin{tikzpicture}
+        \newcounter{ind}
+        \newcounter{indx};
+        % size of each node
+        \def\sz{9.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{Val,0,0,0};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) {Xmm15};
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+        %dibujito de 2
+        \hspace{40mm}
+        2. \hspace{1mm}
+        \begin{tikzpicture}
+        % size of each node
+        \def\sz{9.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{0,Val,0,0};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm15 };
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+        %dibujito de 3
+       
+        \vspace{5mm}
+        3. \hspace{1mm}
+        \begin{tikzpicture}
+        % size of each node
+        \def\sz{9.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{Val,Val,0,0};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) {Xmm15 };
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+        %dibujito de 7
+        \hspace{40mm}
+        7. \hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{9.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{1,Val,Val,Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm15 };
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+        \\
+       
+        \vspace{50mm}
+        Esta situación se puede resolver usando la instrucción \textbf{insertps}, se verificará luego si supone una ganancia en términos de rendimiento.
+       
+        A su vez, también será necesario almacenar en otro registro, xmm14 en nuestro caso, la resta entre 1 y value , ya que se utilizará en el ciclo para realizar los cálculos.
+        \\
+       
+        \hspace{55mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{9.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{0,1-Val,1-Val,1-Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm14 };
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+       
+       
+        \emph{Funcionamiento del ciclo:}
+       
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Pseudocodigo}
+                \caption{Ciclo de procesamiento de 4 píxeles}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                       
+                        \State
+                        Se cargan los píxeles de la imagen1  en orden inverso al que están en memoria. Pmem es un puntero a la imagen.
+                        \State xmm0 $\leftarrow$ *(pMem)                 \Comment{xmm1 = [p4,p3,p2,p1]}
+                        \State xmm1 $\leftarrow$  UnpckBW(xmm0,0) \Comment{Cada componente de p1 sera de 4 bytes}                
+                        \State xmm2 $\leftarrow$  UnpckBW(xmm0,1) \Comment{Cada componente de p2 sera de 4 bytes}
+                        \State xmm3 $\leftarrow$  UnpckBW(xmm0,2) \Comment{Cada componente de p3 sera de 4 bytes}
+                        \State xmm4 $\leftarrow$  UnpckBW(xmm0,3) \Comment{Cada componente de p4 sera de 4 bytes}
+                        \\
+                        Se convierte a float cada entero de cada pixel.
+                        \State xmm5 $\leftarrow$ ToFloat(xmm1)
+                        \State xmm6 $\leftarrow$ ToFloat(xmm2)
+                        \State xmm7 $\leftarrow$ ToFloat(xmm3)
+                        \State xmm8 $\leftarrow$ ToFLoat(xmm4)
+                        \\
+                        Ahora cada píxel tiene sus componentes en floats.\\
+                        Se procede de igual forma para la imagen2(se usan los registros xmm9-xmm12 para almacenar los píxeles)\\
+                       
+                        Se multiplica cada componente de los registros de los píxeles de la imagen1, de forma vertical con xmm15
+                       
+                        \State xmm5 $\leftarrow$ xmm5*xmm15
+                        \State xmm6 $\leftarrow$ xmm6*xmm15
+                        \State xmm7 $\leftarrow$ xmm7*xmm15
+                        \State xmm8 $\leftarrow$ xmm8*xmm15
+                        \\
+                        Se multiplica cada componente de los registros de los píxeles de la imagen2 de forma vertical con xmm14
+                        \State xmm9  $\leftarrow$ xmm9*xmm14  \Comment{xmm9 = p1'}
+                        \State xm10  $\leftarrow$ xmm10*xmm14  \Comment{xmm10 = p2'}
+                        \State xmm11 $\leftarrow$ xmm11*xmm14   \Comment{xmm11 = p3'}
+                        \State xmm12 $\leftarrow$ xmm12*xmm14    \Comment{xmm12 = p4'}
+                       
+                        \\
+                        Se  suman verticalmente de forma correspondiente las componentes de cada pixel
+                        \State xmm5 $\leftarrow$ xmm5+xmm9
+                        \State xmm6 $\leftarrow$ xmm6+xmm10
+                        \State xmm7 $\leftarrow$ xmm7+xmm11
+                        \State xmm8 $\leftarrow$ xmm8+xmm12
+                       
+                        \\Se convierte a entero cada componente
+                       
+                        \State xmm1 $\leftarrow$ ToInt(xmm5)
+                        \State xmm2 $\leftarrow$ ToInt(xmm6)
+                        \State xmm3 $\leftarrow$ ToInt(xmm7)
+                        \State xmm4 $\leftarrow$ ToInt(xmm8)
+                       
+                        \\Se empaquetan los datos de words a byte de cada pixel.               
+                       
+                        \State xmm1 $\leftarrow$ PckWB(xmm1,xmm2,xmm3,xmm4)
+                        \State *pMem $\leftarrow$ xmm1
+                        \State pMem $+=$ 16 \Comment{Se avanza a los próximos 16 bytes(i.e 4 píxeles), el puntero a la imagen}
+                        \State loop
+                \end{algorithmic}
+        \end{algorithm}
+       
+        \textit{Nota:\\La funci\'on del pseudocódigo UnpckBW, extiende con cero cada Byte del primer parámetro a Word. El segundo parámetro indexa cuales 4 bytes se toman, siendo 0 los 4 bytes menos significativos
+                \\ La funci\'on PckWB, lleva cada entero de sus parametros a tamaño byte(i.e conserva los 8 bits menos significativos) y luego los inserta en el primero, en orden.Ver diagramas abajo\\
+                La iteración representada es la primera}
+        \\
+       
+        A continuaci\'on se hará el seguimiento del estado de los registros asociados al píxel1 de la imagen. Por cuestiones de simplicidad, se omiten los demás pues resultan análogos. F significa que el valor es convertido a Float
+       
+        \vspace{4mm}
+        %figura linea 3
+        2. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,b1,g1,r1,a2,b2,g2,r2,a3,b3,g3,r3,a4,b4,g4,r4 };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm0};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+        %figura linea 4
+        3. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,0,0,0,b1,0,0,0,g1,0,0,0,r1,0,0,0 };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm1};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+       
+        8. \hspace{2mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1F,g1F,b1F,r1F };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.4,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+       
+        13. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1'F,g1'F,b1'Fl,r1'F};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{5mm}
+       
+        15. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1F x 1.0,g1F x Val,b1F x Val,r1F x Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+       
+        20. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1'F x 0.0,g1'F x (1-Val),b1'F x(1- Val),r1'F x (1-Val)};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm9};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+       
+        24. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1F,g1F x Val,b1F x Val,r1F x Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        + \hspace{3mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{0,g1'F x (1-Val),b1'F x(1-Val),r1'F x(1-Val)};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm9};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \begin{tikzpicture}
+       
+        \draw [-](12,0) -- (2,0);
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+       
+        \hspace{7mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=green!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1F,g1F'',b1F'',r1F''};
+       
+        \def\y{0}; % y pos of arr
+       
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain above] at (-1.5,\y-0.4) { Xmm5};
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y-0.4) { \item };
+               
+        }
+        \end{tikzpicture}
+        \\
+       
+       
+        \vspace{4mm}
+       
+        30. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1'',0,0,0,b1'',0,0,0,g1'',0,0,0,r1'',0,0,0 };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm1};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+        %figura linea 4
+        35. \hspace{0mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1'',b1'',g1'',r1'',a2'',b2'',g2'',r2'',a3'',b3'',g3'',r3'',a4'',b4'',g4'',r4'' };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm1};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+        \\
+       
+        \vspace{4mm}
+        \textit{Nota2:\\Notemos que $Val * componente$ $\leq$ 255 y $(1-Val) *componente$ $\leq$ 255. Esto asegura que la conversión a entero quepa en un byte }
+       
+        \subsection{Algoritmo para la implementaci\'on beta:}
+       
+       
+       
+        \emph{C\'omputos previos:}\\
+       
+        Al igual que en la implementaci\'on anterior, se comienza armando el stack frame y salvando los registros que pueden destruirse en el ciclo(por ejemplo rcx, que es usado para la funci\'on loop).\\
+       
+       
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Pseudocodigo}
+                \caption{Cargar parametros (\emph{loop} interno)}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                        \State $pxor$ xmm15,xmm15
+                        \State $padd$ xmm15,xmm0
+                        \State $pslldq$ xmm15,4
+                        \State $padd$ xmm15,xmm0
+                        \State $pslldq$ xmm15,4
+                        \State $padd$ xmm15,xmm0
+                        \State $pslldq$ xmm15,4
+                        \State $addss$ xmm15,[uno]  uno es un doubleWord 1.0,1.0,1.0,1.0
+                        \State $movdqu$ xmm14,[uno]
+                        \State $subps$ xmm14,xmm15
+                        \State $movups$ xmm1,[l]   l es un double que es 1.0,256.0,256.0,256.0
+                        \State $mulps$ xmm15,xmm1                      
+                        \State $mulps$ xmm14,xmm1                      
+                        \State $cvtps2dq$ xmm1,xmm15
+                        \State $movups$ xmm15,xmm1
+                        \State $cvtps2dq$ xmm1,xmm14
+                        \State $movups$ xmm14,xmm1
+                        \State $packusdw$ xmm15,xmm15          
+                        \State $packusdw$ xmm14,xmm14
+                \end{algorithmic}
+        \end{algorithm}
+       
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{9.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{1,Val,Val,Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm15 };
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+        \hspace{49mm}
+        \hspace{5mm} \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{9.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{0,1-Val,1-Val,1-Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm14 };
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+       
+       
+        \vspace{2mm}
+       
+        \emph{Desarrollo del ciclo interno:}
+       
+       
+        \vspace{5mm}
+       
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Pseudocodigo}
+                \caption{Ciclo de procesamiento de cuatro píxeles (\emph{loop} interno)}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                        \State xmm0 $\leftarrow$ 0
+                        \State xmm1 $\leftarrow$ (Pmem)
+                        \State xmm3 $\leftarrow$ xmm1
+                        \State xmm1 $\leftarrow$ PunpcklBW (xmm1,xmm0)
+                        \State xmm3 $\leftarrow$ PunpcklBW (xmm3,xmm0)
+                        \State xmm5 $\leftarrow$ xmm1
+                        \State xmm6 $\leftarrow$ xmm3
+                        En xmm5 y en xmm6 quedaron los cuatro píxeles de la primer imagen, del mismo modo se guardan en xmm7 y xmm8 los cuatro píxeles de la segunda imagen
+                        \State xmm13 $\leftarrow$ xmm5
+                        \State xmm5 $\leftarrow$ pmullw(xmm5,xmm15)
+               
+                        \algstore{pele}
+                \end{algorithmic}
+        \end{algorithm}
+       
+        \pagebreak
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Pseudocodigo}
+                \caption{Ciclo de procesamiento de cuatro píxeles (\emph{loop} interno)-Continuación-}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                        \algrestore{pele}
+                                \State xmm13 $\leftarrow$ pmulhw(xmm13,xmm15)
+                        \State xmm0 $\leftarrow$ xmm5
+                       
+                        \State xmm5 $\leftarrow$ punpclwd(xmm5,xmm13)
+                        \State xmm0 $\leftarrow$ punpclhd(xmm0,xmm13)
+                        En xmm5 y xmm0 quedaron los dos primeros píxeles, en entero y multiplicados por el valor, con el mismo método en xmm6 y xmm1 quedan los otros dos píxeles de la primera imagen, y los de la segunda imagen están en xmm7,xmm2,xmm8 y xmm3
+                        \State xmm5 $\leftarrow$ paddd(xmm5,xmm7)
+                        \State xmm0 $\leftarrow$ paddd(xmm0,xmm2)
+                        \State xmm6 $\leftarrow$ paddd(xmm6,xmm8)
+                        \State xmm1 $\leftarrow$ paddd(xmm1,xmm3)
+                        \State xmm5 $\leftarrow$ psrld(xmm5,8)
+                        \State xmm6 $\leftarrow$ psrld(xmm6,8)
+                        \State xmm0 $\leftarrow$ psrld(xmm0,8)
+                        \State xmm1 $\leftarrow$ psrld(xmm1,8)
+                        \State xmm5 $\leftarrow$ packusdw(xmm5,xmm0)
+                        \State xmm6 $\leftarrow$ packusdw(xmm6,xmm1)
+                        \State xmm5 $\leftarrow$ packuswb(xmm5,xmm6)
+                        \State (Pmem)$\leftarrow$  xmm5
+                \end{algorithmic}
+        \end{algorithm}
+       
+        \textit{Nota:\\ Seleccionamos el valor $256 = 2^{8}$ para escalar a Val. Esto vale pues:}\\
+        $(x*Val + y*(1-v) ) * (k/k) =   (x * (Val*k) + y*k*(1-v)) / k$\\
+       
+        A continuaci\'on se realizara el seguimiento de los registros involucrados en el procesamiento de cuatro píxeles(i.e una iteración)\\
+       
+        \vspace{4mm}
+        2.\hspace{1mm}
+        \begin{tikzpicture}
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,b1,g1,r1,a2,b2,g2,r2,a3,b3,g3,r3,a4,b4,g4,r4 };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm1};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+        3.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,b1,g1,r1,a2,b2,g2,r2,a3,b3,g3,r3,a4,b4,g4,r4 };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm3};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+
+        \vspace{2mm}
+        6.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,b1,g1,r1,a2,b2,g2,r2};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+
+        \vspace{2mm}
+        7.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a3,b3,g3,r3,a4,b4,g4,r4 };
+        <
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm6};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+
+        \vspace{2mm}
+        7.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=green!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,b1,g1,r1,a2,b2,g2,r2};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm7};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+
+        \vspace{2mm}
+        7.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=green!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a3,b3,g3,r3,a4,b4,g4,r4 };
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm8};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+         
+         \vspace{2mm}  
+        12.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,g1 x Val,b1 x Val,r1 x Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+         
+         \vspace{2mm}  
+        13.\hspace{1mm}
+        \begin{tikzpicture}
+
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a2,g2 x Val,b2 x Val,r2 x Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm0};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        13.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a3,g3 x Val,b3 x Val,r3 x Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm6};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        13.\hspace{1mm}
+        \begin{tikzpicture}
+       
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a4,g4 x Val,b4 x Val,r4x Val};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm1};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+       
+        \end{tikzpicture}
+
+        \vspace{2mm}
+        13.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=green!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a'1,g'1 x (Val-1),b'1 x (Val-1),r'1 x (Val-1)};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm7};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        13.\hspace{1mm}
+        \begin{tikzpicture}
+       
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=green!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a'2,g'2 x (Val-1),b'2 x(Val-1),r'2 x (Val-1)};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm2};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+
+        \vspace{2mm}
+        13.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=green!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a'3,g'3 x (Val-1),b'3 x (Val-1),r'3 x (Val-1)};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm8};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+
+         \vspace{2mm}
+        13.\hspace{1mm}
+        \begin{tikzpicture}
+       
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=green!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a'4,g'4 x (Val-1),b'4 x (Val-1),r'4x (Val-1)};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm3};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        14.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+        x|x|
+        \def\arrc{a1,(g1xVal)+(g'1x(Val-1)),(b1xVal)+(b'1x(Val-1)),(r1xVal)+(r'1x(Val-1))};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        15.\hspace{1mm}
+        \begin{tikzpicture}
+       
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a2,(g2xVal)+(g'2x(Val-1)),(b2xVal)+(b'2x(Val-1)),(r2xVal)+(r'2x(Val-1))};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm0};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        16.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a3,(g3xVal)+(g'3x(Val-1)),(b3xVal)+(b'3x(Val-1)),(r3xVal)+(r'3x(Val-1))};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm6};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        17.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a4,(g4xVal)+(g'4x(Val-1)),(b4xVal)+(b'4x(Val-1)),(r4xVal)+(r'4x(Val-1))};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm1};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+
+        \vspace{2mm}
+        18.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,g1'/256,b1'/256,r1'/256};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        19.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a2,g2'/256,b2'/256,r2'/256};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm0};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        20.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a3,g3'/256,b3'/256,r3'/256};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm6};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        21.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{10mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=blue!10, rectangle,minimum height=\sz, minimum width=\sz*2.3 ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a4,g4'/256,b4'/256,r4'/256};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-1.5,\y) { Xmm1};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz*2.3,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz*2.3,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        22.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,g1R,b1R,r1R,a2,g2R,b2R,r2R};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        23.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a3,g3R,b3R,r3R,a3,g3R,b3R,r3R};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm6};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        24.\hspace{1mm}
+        \begin{tikzpicture}
+       
+        % size of each node
+        \def\sz{7.5mm}
+        % node style definition
+        \tikzstyle{block} = [draw, fill=red!10, rectangle,minimum height=\sz, minimum width=\sz ];
+       
+        \tikzstyle{plain} = [draw=none,fill=none];
+       
+        \def\arrc{a1,g1R,b1R,r1R,a2,g2R,b2R,r2R,a3,g3R,b3R,r3R,a4,g4R,b4R,r4R};
+       
+        \def\y{0}; % y pos of arr
+       
+        \setcounter{ind}{0};
+       
+        \def\y{-2}; % y pos of arr
+       
+        \setcounter{ind}{-1};
+       
+        \setcounter{indx}{-1};
+       
+        \node[plain] at (-0.5,\y) { Xmm5};
+       
+       
+        \foreach \item in \arrc{
+               
+                \addtocounter{ind}{-1};
+               
+                \addtocounter{indx}{1};
+               
+                \node[block] at (\theind*\sz,\y+0) { \item };
+               
+                \node[plain] at (\theind*\sz,\y+0.7) { \theindx };
+               
+        }
+        \end{tikzpicture}
+       
+       
+       
+        \vspace{5mm}
+       
+        \subsection{Resultados y experimentaciones:}
+       
+        Luego de comprender la operatoria de cada implementaci\'on \textbf{una pregunta natural que surge es poder determinar cual de ambas tiene un mayor rendimiento.}
+       
+        El propósito de lo siguiente es mostrar que la implementaci\'on $\beta$ es superior a las demás. Partir de este supuesto viene a raíz de que la misma, a diferencia de $\alpha$,
+        no realiza nigun tipo de conversión de enteros a punto flotante(ni al revés) en cada iteración. No solo eso, si no que tampoco trabaja con operaciones de punto flotante, que se suponen
+        mas costosas. Además, ambas utilizan el mismo algoritmo para recorrer las matrices, tomando la mayor cantidad de píxeles en los registros xmm.
+        También se evidenciará que ambas implementaciones de assembler aprovechan las instrucciones de SSE para ganar rendimiento. Se espera que la compilación de la implementación C no sea
+        lo suficientemente óptima como para procesar mas de un pixel en paralelo y por lo tanto ser menos eficiente en términos de tiempo. Inspeccionando un poco el código resultante de assembler
+        generado en la compilación , se da cuenta de esta situación.
+        También se plantea la cuestión de verificar que el desempeño de los filtros merge \emph{no dependen} del tipo de imagen que utilizan ni del par\'ametro
+        elegido.
+        Para el análisis, se armó un conjunto de imágenes que fuesen representativas(ver imágenes al final del informe):\\
+        A continuación se muestra el gráfico obtenido \emph{utilizando el protocolo de mediciones ya detallado. El valor que se obtiene por ejecuci\'on es un promedio sobre datos filtrados}.
+       
+        \vspace{5mm}
+        \hspace{28mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento Merge},
+        legend style={at={(0.5,1.05)},
+                anchor=north,legend columns=0},
+        width=10.5cm,
+        ylabel= Promedio ClockTicks (con STD),
+        xlabel= Parametros de ejecuci\'on,
+        xtick={1,...,8},
+        xticklabels={%
+                (im0:im1:.7),
+                (im0:im4:.7),
+                (im0:im6:.7),
+                (im4:im6:.7),
+                (im5:im6:.7),
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   7691591   191428 2
+                2   7686549   165743 4
+                3   7698112   171131 1
+                4   7710817   202455 1
+                5   7701459   190631 8
+               
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   806911      61086 2
+                2   797764      54582 4
+                3   805685      60034 1
+                4   799224      53247 1
+                5   800360      58546 8
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   721972      61803 2
+                2   716980      58392 4
+                3    716359     55892 1
+                4   712839      55071 1
+                5   718742      75819  8
+               
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+       
+        \vspace{5mm}
+       
+        En el gráfico de arriba se pueden apreciar las distintas ejecuci\'ones de los algoritmos con imágenes distintas como parámetro, siempre con el  float fijo. Se puede observar que cada implementaci\'on
+        \emph{se comporta igual} en cualquiera de los casos de ejecuci\'on. Tomando los promedios de las ejecuci\'ones mostradas en el gráfico,para cada implementaci\'on nuestra,en ningún caso se obtuvo un desvío superior al $1\%$.
+        Esto marca la cercanía en las magnitudes de los tiempos de ejecuci\'on.En otras palabras, se observa que el rendimiento no depende del tipo de entrada. Además, también se verificó que dadas dos imágenes, el promedio de ejecuci\'on al variar el \emph{parámetro de punto flotante distinto}
+        tenia un desvío menor que $1,5\%$. Concluimos que ,como se suponía, la performance \emph{no varia} con ninguno de los parametros elegidos. \\
+       
+        En resumen, la implementaci\'on ASM2 demora un $85,69\%$ de ASM1 y tan solo un $5,67\%$ de la de C.
+        A su vez, ASM1 demora el $6,61\%$ de la de C.
+        Por otra parte, también es útil ver como reaccionan los algoritmos con la variación del tamaño de entrada. Es de esperar que , conforme la imagen crezca en tamaño, la cantidad de iteraciones
+        aumente pues depende cuadraticamente del ancho(asumiendo imágenes cuadradas, como lo estamos haciendo). Fijadas los dos parametros de imagen, ambos im4 en este caso, y de float,0.7 , se obtuvo el siguiente gráfico:
+       
+        \vspace{4mm}
+       
+        \hspace{40mm}\begin{tikzpicture}
+        \begin{axis}[,
+        legend style={at={(0.5,1.05)},
+                anchor=north,legend columns=0},
+        width=8.5cm,
+        ylabel= Promedio ClockTicks(con STD),
+        xlabel= Tamaño de imagen,
+        xtick={1,...,8},
+        xticklabels={%
+                16x16,
+                32x32,
+                64x64,
+                128x128
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   1061        173 2
+                2   3433        376 4
+                3   11706       137 1
+                4   47177       2641 8
+               
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   938         6 2
+                2   2816        61 4
+                3   10470       191 1
+                4   45423       6927 8           
+               
+        };
+        \legend{asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \vspace{4mm}
+        Se observa la relación cuadrática para ambas implementaciones en el gráfico. Cada vez que duplicamos el ancho, se cuadriplican los ClockTicks anteriores.\\
+       
+        Para concluir este punto, creemos que las comparaciones son razonablemente justas. En las implementaciones de assembler siempre se procesan ,por iteración, la mayor cantidad de píxeles
+        que se puedan almacenar en un registro xmm.
+       
+        Naturalmente, cada implementaci\'on realiza una cantidad distinta de operaciones por ciclo. Sin embargo, la complejidad de ambos es del orden cuadrático y tiene sentido querer medir las constantes
+        que las distinguen. Otro elemento a tener en cuenta son los accesos a memoria. Sacando aquellos que están fuera del ciclos principal, que hacen a el procesamiento previo de búsqueda de constantes, ambos realizan
+        la misma cantidad por ciclo. Dos lecturas para traer los píxeles de cada imagen, y una escritura de los píxeles ya modificados.
+       
+        Otro punto a tener en cuenta son los saltos condicionales. Es posible que , en los casos donde la predicción no sea buena, se produzca un\emph{ atascamiento} del pipeline, teniendo que desechar todas las operaciones
+        pre computadas para saltar a otra dirección del programa en ejecuci\'on. Esto impacta negativamente en la performance, bajando la cantidad de instrucciones que se ejecutan en ese lapso de tiempo.
+        Dicho esto, existen saltos que resulta imposibles retirarlos. Este es el caso de la implementaci\'on de ASM1 y ASM2, donde el único salto esta relacionado con el control del ciclo que recorre la imagen.
+        Otro aspecto que pensamos que podría suponer algún tipo de mejora , para el caso de la implementaci\'on ASM1, era utilizar el código mostrado abajo en lugar del Extracto 1.
+        Sin embargo verificamos que el hecho de utilizar insert no mejora notablemente el rendimiento, ya que ambas se comportan significativamente igual.
+       
+       
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Extracto}
+                \caption{Carga del parámetro value en xmm15}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                        \State  $insertps$ xmm15,xmm0,0
+                        \State  $insertps$ xmm15,xmm0,0
+                        \State  $insertps$ xmm15,xmm0,0x20
+                        \State  $insertps$ xmm15,xmm0,0x30
+                        \State  $insertps$ xmm15,[uno],0x00    
+                \end{algorithmic}
+        \end{algorithm}
+       
+       
+       
+        \hspace{40mm}\begin{tikzpicture}
+        \begin{axis}[
+        legend style={at={(0.5,1.15)},
+                anchor=north,legend columns=0},
+        width=7.6cm,
+        height= 5cm,
+        fontsize= 1pt,
+        ylabel= Average Ticks (con STD),
+        xlabel= Parametros de ejecuci\'on,
+        xtick={1,...,8},
+        ybar interval=0.7,
+        ymin=0,
+        xticklabels={%
+                (im0:im1:.1),
+        },
+        grid=major,
+        ybar
+        ]
+       
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   806911    61086 2  
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   796983      50368 2
+               
+        };
+       
+        \legend{asm1,asm1modif}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+       
+        \end{axis}
+        \end{tikzpicture}
+       
+        Otra de las preguntas que surgen es si ,de alguna manera, existe una limitación en el rendimiento por los accesos a memoria. A priori, se esperaría que el acceso a memoria signifique
+        una demora importante ,por los largos tiempos de acceso a esta. De todas formas pensamos que no representa un \emph{cuello de botella} en ninguna de las implementaciones.
+        Para ello comentamos las lineas de código referidas a cálculos con SSE y dejamos ,entonces, un programa que solo recorría ambas imágenes y escribía en el destino la primera imagen sin modificar.
+        Mostramos a continuación un gráfico ilustrativo de la situación para ASM1.
+       
+        \vspace{3mm}
+        \hspace{50mm}\begin{tikzpicture}
+        \pie[text = pin,scale font, radius = 2,color = {blue!30, yellow!30}]{ 24.3/Memoria,75.7/Cálculos}
+        \end{tikzpicture}
+       
+        \vspace{2mm}
+        \vspace{0mm}
+       
+        Es preciso considerar que el patrón de acceso a memoria es alineado a 16 bytes en ASM1 y ASM2. Asumiendo que la imagen inicial que se procesa esta alineada, entonces , como en cada lecturas
+        se acceden a 4 píxeles, i.e 16 bytes, los próximos accesos seguirán alineados. Además con la hipótesis sobre los parametros de entrada(múltiplos de 16 bytes) podemos asegurar que no habrá lecturas invalidas
+        si se recorre la matriz como en los algoritmos.
+        En cuanto al resultado final, la imagen filtrada de ambas implementaciones en assembler presenta diferencias imperceptibles a la vista. Corriendo los test, obtenemos una diferencia no mayor a dos.
+        Es decir, el análisis hecho arroja una conclusión importante, y a su vez esperada. Utilizar operaciones SSE de punto flotante suponen una penalización en el rendimiento con respecto a una de enteros(como ya se vio en los gráficos).
+        Pero no solo esto, si no que en el caso de un filtro de imagen, en particular merge, la calidad final del resultado es mas que aceptable. Es cierto que existe una perdida de precisión en el momento
+        en el que el parámetro de punto flotante es convertido a entero, pero esto no se traduce en una perdida significativa de datos en este marco particular.
+       
+       
+       
+       
+        \section{Experimentaciones con filtro Blur:}
+       
+        \subsection{Algoritmo para implementaci\'on alpha:}
+        La primera implementaci\'on de blur, opera cada píxel por separado y en cada iteración cambia el valor de uno solo. La forma en
+        la que esta pensado es:
+        En cada pasada, se traen los vecinos de el pixel que vamos a procesar.Como los que se van cambiando son
+        los vecinos de otros píxeles que no se modificaron todavía,  cada vez que operamos sobra una nueva fila de la imagen se la copia a un temporal
+        para poder ir procesando  cada pixel, sobre los valores originales de la imagen.
+        Esto se puede ver en:
+       
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Extracto}
+                \caption{Carga de fila temporal}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                        \State .termineDeCopiar:
+                        \State  $mov  qword$ r8,0
+                        \State  $inc$ r9
+                        \State  $lea$ r14,[r14 + 4*r12]
+                        \State  $mov qword$ r10,rbx  
+                        \State  $mov qword$ rbx,r15
+                        \State  $mov qword$ r15,r10
+                        \State  $jmp$ .pedirFila
+                       
+                \end{algorithmic}
+        \end{algorithm}
+       
+        Esta parte del código es llamada cada vez que se opera con el ante-ultimo pixel de cada fila, y la razón por la cual se toma este y no
+        el ultimo, es porque este pixel no tiene los vecinos completos, entonces el promedio cambiaría bastante.
+        Lo que hace luego es cambiar lo que era la copia de la  "segunda fila",pasarla a la "primera fila" y volver a pedir en la segunda fila,los siguientes pixeles, que son los que  esta apuntando el puntero de fila,r14.
+       
+        Una vez que ya tenemos las dos filas copiadas, y empezamos a operar sobre los píxeles, en cada iteración vamos a agarrar los nueve vecinos que
+        nos interesan.
+       
+       
+        En este momento tenemos a un registro que nos indica cual es el pixel sobre el que vamos a operar, entonces tenemos que pedir memoria(i.e sus vecinos). Esto lo hacemos de la siguiente manera:
+        Sea $(i,j)$ la posición de el pixel, tomamos los cuatro píxeles desde la posición $(i-1,j-1), (i,j-1),(i+1,j-1)$
+        En particular, creamos un offset que dependa del pixel en el que estamos iterando. Como tenemos 3 punteros, uno que apunta a la primera fila copiada, otro a la
+        segunda fila copiada y otro a la fila que estamos modificando, entonces el offset sería:
+       
+        \alglanguage{pseudocode}
+        \begin{algorithm}
+                \floatname{algorithm}{Extracto}
+                \caption{Carga de píxeles vecinos}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                       
+                        \State  $movdqu$  xmm1,[rbx+r11*4]     
+                        \State  $movdqu$  xmm5,[r15+r11*4]     
+                        \State  $mov$ rdi,r12
+                        \State  $add$ rdi,r11
+                        \State  $movdqu$ xmm8,[r14+rdi*4]      
+                       
+                \end{algorithmic}
+        \end{algorithm}
+       
+        1.xmm1 = $\|r4,g4,b4,a4\|r3,g3,b3,a3\|r2,g2,b2,a2\|r1,g1,b1,a1\|$ \\
+       
+        2.xmm5 = $\|r4',g4',b4',a4'\|r3',g3',b3',a3'\|r2',g2',b2',a2'\|r1',g1',b1',a1'\|$ \\
+       
+        5.xmm5 = $\|r4'',g4'',b4'',a4''\|r3'',g3'',b3'',a3''\|r2'',g2'',b2'',a2''\|r1'',g1'',b1'',a1''\|$ \\
+       
+       
+       
+        En este extracto del código, rbx sería la primera fila, r15, la segunda, y r14, es el que apunta en la imagen original la fila que estamos
+        modificando. Con primera y segunda fila, nos referimos a la fila arriba de la cual estamos operando, y la segunda sería la misma fila con la que
+        estamos operando pero sin los píxeles anteriores modificados. El registro r11 es el que dice cual es el pixel desde el que pedimos la memoria, ese pixel
+        es el anterior inmediato del que vamos a modificar en esa iteración. Rdi, como vemos en el código, es la suma de r11 mas otro registro, que
+        contiene la cantidad de píxeles que hay en una fila en la imagen. De esta manera podemos apuntar al pixel de la fila de abajo, para poder pedir
+        los vecinos, sobre los que sabemos que no están modificados. En la explicación de los xmm's anterior, los píxeles 4,8, y 12, no se usan porque no
+        están incluidos en los vecinos. Y los otros son promediados, guardándose en la posición del pixel a cambiar(de la imagen original), el  resultado de la media.
+        (El puntero sería: r14 + (r11+1)*4 ). \\
+       
+        \subsection{Algoritmo para implementaci\'on beta}
+        Con respecto al segundo blur, la lógica es bastante parecida, pero en cada iteración se modifican 4 píxeles, de manera que la cantidad
+        de vecinos que estos tienen (18)  no nos alcanzan para meterlos en diferentes registros. Y tampoco podemos
+        bajarlos de memoria todos al mismo tiempo, entonces los traemos en 4 tandas diferentes (por la falta de registros).
+        Primero traemos  a los vecinos que sirven para el primer y segundo pixel, y luego a  los otros que se van sumando en distintos
+        acumuladores para poder después sacar el promedio de cada pixel.
+        Como las imágenes que este programa acepta tienen que tener una cantidad de píxeles de ancho que sean divisibles por 4 y además los bordes no se modifican, al procesar de a 4 píxeles tenemos el problema de que siempre van a quedar dos al final de cada
+        fila. Para ello ,al termino de cada iteración, controlamos que no estemos en el final, para no pisar posiciones de memoria que no son nuestras.
+        Además, para traer de memoria también debemos fijarnos que no nos estemos pasando, por eso antes de traer datos de las  filas que
+        fueron copiadas(las que vimos antes, que funcionan como temporales) verificamos,de igual forma,que no estemos en la ultima iteración.
+       
+        \subsection{Resultados y experimentaciones}
+       
+        \begin{enumerate}
+                \item {¿Cual implementaci\'on tiene mejor rendimiento?
+                       
+                        La segunda implementaci\'on de blur tiene mayor rendimiento. Y la razón es bastante simple, cuando operamos con la primera implementaci\'on
+                        traemos todos los vecinos de cada pixel, que son 3 accesos a memoria, y otro acceso mas, para escribirlo una vez procesado.
+                        Esta es la cantidad por pixel, sin contar lo que cuesta copiar una fila, porque eso lo hacemos en ambas implementaciones. Entonces
+                        para cambiar tan solo uno , estamos accediendo a memoria 4 veces.En cambio, en la segunda implementaci\'on, para modificar 4 píxeles ,estamos accediendo
+                        6 veces, para traer los vecinos de estos, y otras 4 para guardarlos,que serían 10 accesos. Podemos decir que en ASM1 son 4 accesos a memoria por pixel,
+                        mientras que en la segunda son 2.5 por pixel.
+                        El otro factor que impacta en los tiempos son las conversiones por ciclo. Para ASM1, tenemos que convertir un registro xmm de entero a float,
+                        y vice versa. En ASM2, son 8 conversiones, 4 de enteros a floats, y 4 de forma inversa(Esto se usa para poder dividir en el promedio).
+                        Sin embargo, en ambos la proporción es la misma: 2 conversiones por ciclo.
+                        Entonces tomando lo mas lento de todo el código que sería memoria y conversiones, por lo anterior, ASM1 debería tener un rendimiento superior. El mismo se aprecia en el gráfico de abajo.
+                        como conclusión, tomando el promedio de las ejecuci\'ones para cada imagen (las observadas en el gráfico) y comparándolas,\emph{ASM2 demora el $79,14\%$ de ASM1 y el $7,6\%$ de C. ASM1 demora el $9,5\%$ de C.}
+                }
+               
+                \hspace{15mm}\begin{tikzpicture}
+                \begin{axis}[
+                title = {Rendimiento Blur},
+                legend style={at={(0.5,1.05)},
+                        anchor=north,legend columns=0},
+                width=12cm,
+                height =8cm,
+                ylabel= Promedio ClockTicks (con STD),
+                xlabel= Parametros fotos,
+                xtick={1,...,8},
+                xticklabels={%
+                        im0,
+                        im1,
+                        im2,
+                        im3,
+                        im4,      
+                        im5,
+                        im6,
+                        im7,
+                },
+                grid=major,
+                ybar
+                ]
+                x|
+                \addplot[
+                fill=blue!25,
+                draw=black,
+                point meta=y,
+                every node near coord/.style={inner ysep=5pt},
+                error bars/.cd,
+                y dir=both,
+                y explicit
+                ]
+                table [y error=error] {
+                        x   y           error    label
+                        1   48810355   599567 2
+                        2   48796913   693428 4
+                        3   48781479   391465 1
+                        4   48799518   486896 1
+                        5   48807944   523255 8
+                        6    48753435       429846
+                        7    48748213     437517
+                        8    48777160        395426
+                };
+               
+               
+                \addplot[
+                fill=red!25,
+                draw=black,
+                point meta=y,
+                every node near coord/.style={inner ysep=5pt},
+                error bars/.cd,
+                y dir=both,
+                y explicit  
+                ]
+                table [y error=error] {
+                        x   y           error    label
+                        1   4679617      339150 2
+                        2   4684734      305194 4
+                        3   4688412      336598 1
+                        4   4684287       370258 1
+                        5   4689608        265349 8
+                        6    4658838        178537
+                        7    4685481        327350
+                        8    4691306         377469
+                };
+                \addplot[
+                fill=green!25,
+                draw=black,
+                point meta=y,
+                every node near coord/.style={inner ysep=5pt},
+                error bars/.cd,
+                y dir=both,
+                y explicit  
+                ]
+                table [y error=error] {
+                        x   y           error    label
+                        1   3714736    234997 2
+                        2   3709578     338061 4
+                        3   3705507       313292 1
+                        4    3690555        139266 1
+                        5   3716807       307952 8
+                        6   3716707     326568  
+                        7    3681653        116369
+                        8    3712206        413098
+                       
+                };
+               
+                \legend{C,asm1,asm2}
+                \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+                \end{axis}
+                \end{tikzpicture}
+               
+               
+                \item{¿En qua casos? ¿Depende del tamaño de la imagen? Depende de la imagen en si?
+                       
+                        En el caso de los blurs, nunca depende de la imagen en si sino solo de su tamaño. Esto se debe a la forma de iterar, como fuimos explicando previamente, y
+                        sabiendo que la suma vertical,y división de los xmm's no dependen del valor de los enteros, sino de la cantidad de bits, que es siempre 8.
+                        En otras palabras, la \textbf{imagen1, imagen2, o imagen5}  tardarían lo mismo que la \textbf{imagen7} siempre y cuando su tamaño sea el mismo
+                        Por la forma que están hechos, la cantidad de iteraciones van a depender simplemente de la cantidad que píxeles que hayan. En la primera implementaci\'on la cantidad de iteraciones
+                        van a ser, $(w-2)*(h-2)$, siendo $w$, la cantidad de píxeles que contiene la imagen de ancho, y $h$ la cantidad de píxeles que contiene la imagen de alto. Se restan dos los bordes.
+                        Y en la segunda implementaci\'on la cantidad de iteraciones serían $(((w-4)/4)+1)*(h-2)$ porque por ciclo modificamos 4 píxeles, pero como
+                        las imágenes son múltiplos de 4, y los bordes no aplican ,entonces la ultima iteración modifica solo 2(por eso el +1) y siguen siendo la misma cantidad de filas que hay que modificar.
+                        En resumen, \emph{al igual que en merge} recorrer una matriz toma tiempo cuadrático sobre la entrada(asumiendo una imagen cuadrada). Decidimos omitir el gráfico pues este hecho ya se
+                        mostró previamente.
+                }
+               
+               
+                \item{¿Como mejoraría el rendimiento de las implementaciones propuestas?
+                        Una situación de la que nos percatamos luego, fue que, en lugar de desempaquetar cada pixel hasta llegar a tenerlo dentro de un registro xmm(i.e cada componente de pixel ocupando 4bytes), se
+                        podría realizar la suma de los 9 vecinos teniendo cada componente en 16bits. Esto es cierto porque , en el peor caso cada valor es $2^{8}$, por lo que
+                        $2^{8}*9 \leq 2^{8}*2^{4} \leq 2^{12}$. Luego el resultado entra en una palabra(word). Así, se podrían ahorrar 3 operaciones de desempaquetar por pixel(12 en total) y 6 de empaquetamiento.
+                }
+               
+                \hspace{40mm}\begin{tikzpicture}
+                \begin{axis}[
+                legend style={at={(0.5,1.15)},
+                        anchor=north,legend columns=0},
+                width=7.6cm,
+                height= 5cm,
+                fontsize= 1pt,
+                ylabel= Average Ticks (con STD),
+                xlabel= Parametros de ejecuci\'on,
+                ymin=0,
+                xtick={1,...,8},
+                xticklabels={
+                        im6,
+                },
+                grid=major,
+                ybar
+                ]
+               
+                \addplot[
+                fill=blue!25,
+                draw=black,
+                point meta=y,
+                every node near coord/.style={inner ysep=5pt},
+                error bars/.cd,
+                y dir=both,
+                y explicit
+                ]
+                table [y error=error] {
+                        x   y           error    label
+                        1    4685481        327350
+                };
+               
+                \addplot[
+                fill=red!25,
+                draw=black,
+                point meta=y,
+                every node near coord/.style={inner ysep=5pt},
+                error bars/.cd,
+                y dir=both,
+                y explicit     
+                ]
+                table [y error=error] {
+                        x   y           error    label
+                        1    4412361    243850
+                       
+                };
+               
+                \legend{asm1,asm1modif}
+                \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+               
+                \end{axis}
+                \end{tikzpicture}
+               
+               
+               
+               
+                \item{¿Es una comparación justa?, La cantidad de operaciones en cada implementaci\'on es la misma?, y los accesos a memoria?
+                       
+                        Como ya se explico antes, la cantidad de accesos a memoria no son lo mismos, en la primera implementaci\'on hay mas accesos a memoria por pixel
+                        que en la segunda. La cantidad de operaciones ,aparte de conversiones, son bastante similares porque en ambas ,cada pixel necesita ser procesado con los mismos datos.
+                        La mayor diferencia se hace en la cantidad de veces que se trae cada dato .
+                }
+               
+                \item{¿La limitación de rendimiento esta en el acceso a memoria?, o en la memoria cache?,esta se podrá acceder mejor?
+                       
+                       
+                       
+                        La limitación del rendimiento podría estar en los  accesos a memoria, mas que nada en la implementaci\'on 1, porque como va modificando de a
+                        un pixel, entonces aunque la primera este alineada, el segundo, tercer, y cuarto pixel no lo van a estar. Esto puede suponer una mayor demora.
+                        En principio, la cache no seria un factor limitante. Cuando se piden los datos para un pixel A y se traen sus vecinos, los datos quedaran en cache disponibles para los dos próximos píxeles B y C.
+                        El cuarto sera un miss, porque inicialmente se pidió desde una posición anterior a A como ya se explico, por lo que no en este caso habrá que ir a memoria.
+                        Podríamos decir que el hitrate sera, aproximadamente, de $1/2$.
+                        Sin embargo, los resultados obtenidos muestran que la memoria no es un factor limitante.
+                }
+               
+                \vspace{1mm}
+                \hspace{35mm}\begin{tikzpicture}
+                \pie[text = pin,scale font, radius = 2,color = {red!30, green!30}]{ 17.71/Memoria y otros,82.29/Cálculos SIMD}
+                \end{tikzpicture}
+               
+                \emph{Nota: Para obtener el resultado anterior, se procedió de la misma forma que en la implementación de Merge.}
+               
+                \item{Hay problemas de rendimiento por los saltos condicionales? Es posible evitarlos?
+                       
+                        Como dijimos en merge, los saltos condicionales asociados al ciclo de recorrido de una imagen son prácticamente imposibles de remover. En este caso, a diferencia del ASM2 de merge, no
+                        tenemos ningún ciclo que realice una cantidad de iteraciones constante, por lo que no podremos desenrollar nada. Pensamos que la predicción de los saltos de los loops que ciclan sobre
+                        la imagen debe ser considerablemente acertada, fallando probablemente en el ultimo salto(cuando debe escapar del ciclo). El pipeline del procesador podría tomar como \emph{notaken} cada
+                        salto condicional de los loops, evitando así que se atasque y se pierda rendimiento. Solo fallaría,entonces, en el ultimo.
+                }
+               
+                \item{El patrón de acceso a la memoria es desalineado?Hay forma de mejorarlo? Es posible medir cuanto se pierde?
+                       
+                        Suponiendo que al principio del primer pixel esta alineado, en la segunda implementaci\'on se puede mejorar para que estén todos los accesos
+                        alineados.
+                        Asumiendo que el primer pixel esta alineado,  cada vez que leemos  16 bytes, logramos acceder de forma alineada. En nuestro caso, cuando necesitamos acceder, lo hacemos en dos partes por linea.
+                        Si la primera vez traemos los 4 primeros vecinos, y operamos con ellos igual que en el código y después ,al contrario de nuestro código(donde  volvemos a pedir los dos últimos píxeles que recién trajimos a memoria) hubiésemos accedido al quinto, ese también seria un acceso alineado. Luego  todos  nos hubiesen quedado alineados, salvo los
+                        de la ultima iteración, para no acceder a memoria que no es nuestra. Así logramos tener la mayoría de los accesos a memoria alineados, pero igual como mostramos en el gráfico anterior,
+                        el rendimiento de blur no tiene cuello de botella allí
+                       
+                        En la primera, no hay forma de forzar que esto pase, porque se va operando de a pixel. Como cada uno de ellos se forman con 4 bytes, seria ineludible tener que acceder
+                        a una posición de memoria que no este alineada a 16 bytes. Para ver cuanto se pierde, bastaría comparar ambas implementaciones(la primera modificada con los cambios pertinentes para
+                        tener un acceso siempre alineado) dejando solo en el código las partes involucradas con las ciclos para recorrer la imagen, y obviando el procesamiento de los píxeles. Esto daría una
+                        referencia de cuanto mas óptimo es acceder de forma alineada a la memoria.
+                }
+               
+                \item{Hay diferencias en operar con enteros o punto flotante?La imagen final tiene diferencias
+                        significativas?
+                        Tomando como experiencia lo que ocurrió con merge, es de esperar que al utilizar enteros existan diferencias en el rendimiento.
+                        Sin embargo, en cuanto al resultado final, se debería esperar una imagen muy similar a la procesada con punto flotante. Es decir, en el mejor caso, el error no debería superar a uno
+                        si utilizamos la división entera. Ya vimos que esto es imperceptible a simple vista.
+                }
+               
+                \item{El overhead de llamados a funciones es significativo? Se puede medir?
+                        El único llamado a funciones es a malloc y free. Suponemos que no debe ser significativo, porque se hace solamente dos veces cada uno en total. Para medirlo, se podría comentar todas las lineas de
+                        código y dejar solamente las necesarias para llamar a malloc. De esta forma, obtendremos los tiempos involucrados.
+                        La relación que obtuvimos fue que ambos representan el $0,035\%$ del tiempo total de ASM1. Magnitud que es insignificante.
+                }
+        \end{enumerate}
+       
+       
+        \section{Experimentaciones con filtro HSL:}
+        El filtro HSL se basa en pasar cada pixel del modelo RGB al HSL, luego de pasarlo a HSL se le suma los valores que se le pasaron y se saturan para que estén dentro de un rango, y por ultimo estos se vuelven a pasar a RGB. Se puede pasar cualquier numero como parámetro, pero por el rango en el que pueden estar lo mejor es que el H reciba números en el rango de [-360,360], mientras que el S y el L tendrían que recibir números entre [-1,1], esto es porque el H tiene que estar en un rango entre [0,360], y se suma o se resta para que entre en el rango,y el S y el L tiene que estar en un rango entre [0,1], pero si no están en ese rango se los pone en el rango mas cercano.
+        \\
+        \subsection{Algoritmos para la implementaci\'on alpha:}
+        El primer filtro consistía en solamente hacer en assembler la suma y para convertir de RGB a HSL y de HSL a RGB se usan funciones ya armadas por la cátedra. Esta implementaci\'on recibe
+        en rsi el ancho de la imagen, en rsi el alto de la imagen, en rdx el puntero a la imagen, en xmm0 el valor que se va a sumar a H, en xmm1 el valor que se va a sumar a S y en xmm2 el valor que se va a sumar a L.
+        Al principio de la funci\'on, y antes de entrar en el ciclo, se guarda en el registro xmm4 los valores que se pasaron y luego se lo guarda en memoria.
+        \begin{algorithm}
+                \caption{Cargar parametros HSL en xmm4}
+                \label{alg1asd}
+                \begin{algorithmic}[1]
+                        \State  xmm4 $\leftarrow$ pxor(xmm4,xmm4)
+                        \State  xmm4 $\leftarrow$ xmm2      
+                        \State  pslldq(xmm4,4)  
+                        \State  xmm4 $\leftarrow$ xmm4+xmm1      
+                        \State  pslldq(xmm4,4)    
+                        \State  xmm4 $\leftarrow$ xmm4+xmm0      
+                        \State  pslldq(xmm4,4)           
+                        \State  [rbp-32] $\leftarrow$ xmm4     
+                \end{algorithmic}
+        \end{algorithm}
+       
+        También se reserva en memoria 128 bits, ya que este espacio es necesario para las funciones que pasan de RGB a HSL y de HSL a RGB. Y se guardan en memoria el ancho y alto de la imagen.
+        Luego de estas preparaciones se entra en el ciclo que recorre la imagen. Un ciclo consiste en primero llamar a la funci\'on rgbTOhsl,pasándole como parametros el puntero al pixel y el puntero al espacio reservado de 128 bits, y esta funci\'on solo modifica el espacio reservado, que su puntero esta en r13.\\
+        \vspace {2mm}
+        \begin{algorithm}
+                \caption{Ciclo}
+                \label{al1asd}
+                \begin{algorithmic}[1]
+                        \State xmm4 $\leftarrow$ [mem]                   \Comment{xmm4 = [L,S,H,00]}
+                        \State xmm3 $\leftarrow$ [r13]                           \Comment{xmm3 = [ll,ss,hh,aa]}
+                        \State xmm3 $\leftarrow$ xmm3+xmm4               \Comment{xmm3 = [L+ll,S+ss,H+hh,aa]}  
+                        \State xmm6 $\leftarrow$ xmm3                            \Comment{xmm6 = [L+ll,S+ss,H+hh,aa]}
+                        \State xmm7 $\leftarrow$ [mascara1]                  \Comment{xmm7 = [1.0,1.0,360.0,00]}
+                        \State xmm7 $\leftarrow$ cmpps(xmm7,xmm6,2)      \Comment{xmm7 =[1.0,1.0,360.0,00] $\leq$[L+ll,S+ss,H+hh,aa]}  
+                        \State xmm8 $\leftarrow$ pxor(xmm8,xmm8)             \Comment{xmm8 = [00,00,00,00]}
+                        \State xmm6 $\leftarrow$ cmpps(xmm6,xmm8,1)            
+                        \State xmm9 $\leftarrow$ xmm7      
+                        \State xmm10 $\leftarrow$ [mascara3]
+                        \State xmm9 $\leftarrow$ pand(xmm9,xmm10)        
+                        \State xmm3 $\leftarrow$ xmm3-xmm9
+                        \State xmm9 $\leftarrow$ xmm6
+                        \State xmm9 $\leftarrow$ pand(xmm9,xmm10)
+                        \State xmm3 $\leftarrow$ xmm3+xmm9                     
+                        \algstore{pele}
+                           
+                \end{algorithmic}
+        \end{algorithm}
+\pagebreak
+        \begin{algorithm}
+                \caption{Ciclo}
+                \label{al1asd}
+                \begin{algorithmic}[1] 
+                \algrestore{pele}
+                        \State r9d $\leftarrow$ extractps(xmm7,3)
+                        \State $cmp$ r9d,0xffffffff
+                        \State $je$ .unol
+                        \State r9d $\leftarrow$ extractps(xmm6,3)
+                        \State $cmp$ r9d,0xffffffff
+                        \State $je$ .cerol
+                        \State .vers:
+                        \State r9d $\leftarrow$ extractps(xmm7,2)
+                        \State $cmp$ r9d,0xffffffff
+                        \State $je$ .unos
+                        \State r9d $\leftarrow$ extractps(xmm6,2)
+                        \State $cmp$ r9d,0xffffffff
+                        \State $je$ .ceros
+                        \State $jmp$ .volver
+                        \State .unol:
+                        \State xmm3 $\leftarrow$ insertps(xmm3,[uno],0xb0)    
+                        \State jmp .vers
+                        \State .cerol:
+                        \State xmm3 $\leftarrow$ insertps(xmm3,[cero],0xb0)
+                        \State jmp .vers
+                        \State .unos:
+                        \State xmm3 $\leftarrow$ insertps(xmm3,[uno],0xa0)
+                        \State jmp .volver
+                        \State .ceros:
+                        \State xmm3 $\leftarrow$ insertps(xmm3,[cero],0xa0)
+                        \State .volver:
+                        \State [r13] $\leftarrow$ xmm3 
+                       
+                \end{algorithmic}
+        \end{algorithm}
+       
+       
+        Al final del ciclo se llama a la funci\'on hslTOrgb, pasándole como parámetro el puntero al espacio reservado de 128 bits, que fue modificado durante el ciclo, y el pixel donde se quiere guardar
+       
+        \subsection{Algoritmos para la implementaci\'on beta:}
+       
+        El segundo filtro consiste en, usando la misma suma que en el primer filtro, también implementar las funciones rgbTOhsl y hslTOrgb.\\
+        Para pasar de RGB a HSL hay que buscar en el pixel color que es el máximo y el mínimo.\\
+        \emph{H:}\\
+        En el caso de que los tres colores tengan el mismo valor el H seria 0, si no dependiendo cual sea el máximo se hace una cuenta con los otros dos colores y la resta del máximo y el mínimo. Al final se ve si esta en el rango de [0,360], y en el caso de que lo sobrepase se le resta 360.\\
+       
+        \begin{algorithm}
+                \caption{Calculo de H}
+                \label{al1asd}
+                \begin{algorithmic}[1]
+                        \State En el caso de que el H sea 0:
+                        \State xmm15 $\leftarrow$ insertps(xmm15,[cero],0x40)    
+                        \State jmp calcularl
+                       
+                        En el caso de que el máximo sea el rojo:
+                        \State xmm11 $\leftarrow$ pxor(xmm11,xmm11)
+                        \State xmm11 $\leftarrow$ xmm1
+                        \State xmm11 $\leftarrow$ xmm11-xmm2
+                        \State xmm11 $\leftarrow$ xmm11/xmm12
+                        \State xmm11 $\leftarrow$ xmm11+[seis]
+                        \State xmm11 $\leftarrow$ xmm11*[sesenta]
+                        \State jmp rango
+                       
+                        En el caso de que el máximo sea el azul:
+                        \State xmm11 $\leftarrow$ pxor(xmm11,xmm11)
+                        \State xmm11 $\leftarrow$ xmm0
+                        \State xmm11 $\leftarrow$ xmm11-xmm1
+                        \State xmm11 $\leftarrow$ xmm11/xmm12
+                        \State xmm11 $\leftarrow$ xmm11+[cuatro]
+                        \State xmm11 $\leftarrow$ xmm11*[sesenta]
+                        \State jmp rango
+                       
+                        En el caso de que el máximo sea el verde:
+                        \State xmm11 $\leftarrow$ pxor(xmm11,xmm11)
+                        \State xmm11 $\leftarrow$ xmm2
+                        \State xmm11 $\leftarrow$ xmm11-xmm0
+                        \State xmm11 $\leftarrow$ xmm11/xmm12
+                        \State xmm11 $\leftarrow$ xmm11+[dos]
+                        \State xmm11 $\leftarrow$ xmm11*[sesenta]
+                        \State jmp rango
+                       
+                        Se pone en rango en el caso de que sea mayor a 360:
+                        \State xmm0 $\leftarrow$ xmm10 
+                        \State xmm0 $\leftarrow$ psrldq(xmm0,4)                
+                        \State xmm0 $\leftarrow$ cmpps(xmm0,xmm11,2)           
+                        \State xmm2 $\leftarrow$ xmm10
+                        \State xmm2 $\leftarrow$ psrldq(xmm2,4)
+                        \State xmm0 $\leftarrow$ pand(xmm0,xmm2)        
+                        \State xmm11 $\leftarrow$ xmm11-xmm0
+                        \State xmm15 $\leftarrow$ insertps(xmm11,0x10)         
+                \end{algorithmic}
+        \end{algorithm}
+       
+        \vspace{123mm}
+        \emph{L:}\\
+        Para calcular el L se suma el máximo y el mínimo y se lo divide por 510.\\
+        \begin{algorithm}
+                \caption{Calculo de L}
+                \label{al1asd}
+                \begin{algorithmic}[1]
+                        \State xmm11 $\leftarrow$ pxor(xmm11,xmm11)
+                        \State xmm11 $\leftarrow$ xmm13
+                        \State xmm11 $\leftarrow$ xmm11+xmm14
+                        \State xmm11 $\leftarrow$ xmm11/[q]
+                        \State xmm15 $\leftarrow$ insertps(xmm11,0x30)
+                \end{algorithmic}
+        \end{algorithm}
+       
+        \emph{S:}\\
+        En el caso de que los tres colores tengan el mismo valor el S seria 0, en otro caso se tendría que dividir la resta del máximo y el mínimo por, la resta de 1 menos el valor absoluto de la resta del doble de L menos 1, y el resultado de la división a su vez dividirla por 255.001
+        \begin{algorithm}
+                \caption{Calculo de S}
+                \label{al1asd}
+                \begin{algorithmic}[1]
+                        \State Veo si el máximo y el mínimo son iguales:
+                        \State cmp(r15b,bl)
+                        \State jne calcularsd
+                        \State xmm15 $\leftarrow$ insertps([cero],0x20)
+                        \State jmp final
+                        \State En el caso de que el máximo y el mínimo sean distintos:
+                        \State calcularsd:     
+                        \State xmm11 $\leftarrow$ xmm11*[dos]
+                        \State xmm11 $\leftarrow$ xmm11-[uno]  
+                        \State xmm11 $\leftarrow$ pand(xmm11,[fabs])           
+                        \State xmm13 $\leftarrow$ [uno]
+                        \State xmm13 $\leftarrow$ xmm13-xmm11
+                        \State xmm12 $\leftarrow$ xmm12/xmm13
+                        \State xmm13 $\leftarrow$ [ff]
+                        \State xmm12 $\leftarrow$ xmm12/xmm13
+                        \State xmm15 $\leftarrow$ insertps(xmm12,0x20)
+                \end{algorithmic}
+        \end{algorithm}
+       
+       
+        Para pasar de HSL a RGB hay que calcular tres variables que van a depender de los valores actuales de HSL, son las variables c, m y x.\\
+        \begin{algorithm}
+                \caption{Calculo de c,m y x}
+                \label{al1asd}
+                \begin{algorithmic}[1]
+                        \State
+                       
+                        \State Calculo c(xmm15)
+                        \State xmm15 $\leftarrow$ [rdi]  
+                        \State psrldq(xmm15,12)    
+                        \State xmm15 $\leftarrow$ xmm15*[dos]  
+                        \State xmm15 $\leftarrow$ xmm15-[uno]  
+                        \State xmm15 $\leftarrow$ pand(xmm15,[fabs])   
+                        \State xmm14 $\leftarrow$ [uno]        
+                        \State xmm14 $\leftarrow$ xmm14-xmm15  
+                        \State xmm15 $\leftarrow$ [rdi]  
+                        \State psrldq(xmm15, 8)    
+                        \State xmm15 $\leftarrow$ xmm15*xmm14  
+                        \algstore{asd}
+                \end{algorithmic}
+        \end{algorithm}
+        \pagebreak
+       
+        \begin{algorithm}
+                \caption{Calculo de c,m y x continuación}
+                \label{al1asd}
+                \begin{algorithmic}[1]
+                        \algrestore{asd}
+                        \State Calculo x(xmm13)
+                        \State nop
+                        \State xmm14 $\leftarrow$ [rdi]        
+                        \State psrldq(xmm14,4)                 
+                        \State divss xmm14/[sesenta]  
+                        \State xmm13 $\leftarrow$ xmm14        
+                        \State xmm14 $\leftarrow$ xmm14/[dos]          
+                        \State nop
+                        \State cvttss2si(r8d,xmm14)            
+                        \State shl(r8d,1)                              
+                        \State cvtsi2ss (xmm14,r8d)            
+                        \State xmm13 $\leftarrow$ xmm13-xmm14          
+                        \State xmm14 $\leftarrow$ xmm13        
+                        \State xmm13 $\leftarrow$ [uno]        
+                        \State xmm14 $\leftarrow$ xmm14-xmm13
+                        \State xmm14 $\leftarrow$ pand(xmm14,[fabs])           
+                        \State xmm13 $\leftarrow$ [uno]                
+                        \State xmm13 $\leftarrow$ xmm13-xmm14
+                        \State xmm13 $\leftarrow$ xmm13*xmm15          
+                       
+                        \State Calculo m(xmm12)
+                        \State xmm14 $\leftarrow$ xmm15        
+                        \State xmm12 $\leftarrow$ [dos]                
+                        \State xmm14 $\leftarrow$ xmm14/xmm12          
+                        \State xmm12 $\leftarrow$ [rdi]  
+                        \State psrldq(xmm12,12)    
+                        \State xmm12 $\leftarrow$ xmm12-xmm14          
+                \end{algorithmic}
+        \end{algorithm}
+       
+        Luego dependiendo del H se le asigna el valor  x,c o cero al rojo, verde y azul.
+        \begin{algorithm}
+                \caption{Asignacion}
+                \label{al1asd} 
+                \begin{algorithmic}[1]
+                        \State xmm14 $\leftarrow$ [rdi]        
+                        \State psrldq(xmm14,4)      
+                        \State xmm14 $\leftarrow$ xmm14/[sesenta]      
+                        \State cvttss2si (ebx,xmm14)
+                        \State cmp(ebx,0)
+                        \State je rcgx
+                        \State cmp(ebx,1)
+                        \State je rxgc
+                        \State cmp(ebx,2)
+                        \State je gcbx
+                       
+                        \algstore{otro}
+                \end{algorithmic}
+        \end{algorithm}
+        \pagebreak
+       
+        \begin{algorithm}
+                \caption{Asignacion continuación}
+                \label{al1asd} 
+                \begin{algorithmic}[1]
+                        \algrestore{otro}
+                        \State cmp(ebx,3)
+                        \State je gxbc
+                       
+                        \State cmp(ebx,4)
+                        \State je rxbc 
+                       
+                        \State cmp(ebx,3)
+                        \State je gxbc
+                        \State cmp(ebx,4)
+                        \State je rxbc 
+                        \State xmm0 $\leftarrow$ xmm15         
+                        \State xmm2 $\leftarrow$ xmm13         
+                        \State jmp escala
+                        \State rcgx:
+                        \State xmm0 $\leftarrow$ xmm15
+                        \State xmm1 $\leftarrow$ xmm13
+                        \State jmp escala
+                        \State rxgc:
+                        \State xmm0 $\leftarrow$ xmm13
+                        \State xmm1 $\leftarrow$ xmm15
+                        \State jmp escala
+                        \State gcbx:
+                        \State xmm1 $\leftarrow$ xmm15
+                        \State xmm2 $\leftarrow$ xmm13
+                        \State jmp escala
+                        \State gxbc:
+                        \State xmm1 $\leftarrow$ xmm13
+                        \State xmm2 $\leftarrow$ xmm15
+                        \State jmp escala
+                        \State rxbc:
+                        \State xmm0 $\leftarrow$ xmm13
+                        \State xmm2 $\leftarrow$ xmm15
+                \end{algorithmic}
+        \end{algorithm}
+       
+        Por ultimo se le suma al rojo,verde y azul el valor m, y se lo multiplica por 255.\\
+       
+       
+        \subsection{Resultados y Experimentación:}
+        Con lo observado en las diferentes experimentaciones se puede ver que el filtro se comporta mas rápidamente con la implementaci\'on 2 que con la implementaci\'on 1, sin importar los parametros o las imágenes que se use. También se puede ver que la implementaci\'on 1 no es mejor cuando se la compara con la implementaci\'on en C. Sin embargo, cuando comparamos la implementaci\'on 2 con la implementaci\'on en C hay grandes variaciones dependiendo las variables que se pasan, ya que si el parámetro H es 0 la implementaci\'on 2 es mas rápida que la implementación en C, pero si no es 0 pasa lo contrario, sin importar la imagen.También se puede ver que la implementaci\'on 2 tiene muy pocas variaciones en su rendimiento, por lo que podemos concluir que su entrada no impacta fuertemente en el tiempo del algoritmo. Sin embargo, en las otras dos implementaciones,se pueden ver grandes cambios según los parametros . Por ejemplo, en el tercer gráfico ASM1 y C registran sus peores tiempos con la imagen2 e imagen3. En el segundo, con otros parametros, las imagenes 4, 5, y 6  son significativamente peores que el resto. Esto refuerza el hecho de que el rendimiento de estas dos este ligado al tipo de imagen y demás valores de entrada.
+       
+        El rendimiento de las implementaciones no varia según el tamaño, sin embargo, mas chica es la imagen mas rápido se va a realizar la operación.\\
+        Una diferencia que se puede ver entre la implementaci\'on 1 y la 2 es la cantidad de accesos a memoria que tienen, esto se debe que en la implementaci\'on 1  se pierden registros cuando se llaman a las funciones rgbTOhsl y hslTOrgb, pero en la otra implementaci\'on al haberla hecha nosotros sabemos que registros no usamos durante los ciclos y tomamos ventaja de ello para no pisarlos y evitar operaciones adicionales.
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecución 0 0 0,
+        xtick={1,...,8},
+        xticklabels={%
+                im0,
+                im1,
+                im2,
+                im3,
+                im4,
+                im5,
+                im6,
+                im7,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   33042906    503610  2
+                2   33146285    334908  4
+                3   33916757    456154  1
+                4   33324552    594351  1
+                5   32018725    355463  8
+                6   32373942    417430
+                7   36638656    467667
+                8   32166849    451400
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   43019466    915378  2
+                2   42131102    695359  4
+                3   42610436    672121  1
+                4   42118260    684145  1
+                5   45773219    510107  8
+                6   45618690    466801
+                7   48554180    658591
+                8   43270184    866787
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   24589786    403684
+                2   24446404    396342  4
+                3   24446202    382568  1
+                4   24532812    496691  1
+                5   24540901    481368  8
+                6   24460156    399098
+                7   24493505    448512
+                8   24517568    418384
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecución 180 0 0,
+        xtick={1,...,8},
+        xticklabels={%
+                im0,
+                im1,
+                im2,
+                im3,
+                im4,
+                im5,
+                im6,
+                im7,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   21039778    505882   2
+                2   21459004    457536   4
+                3   21359799    433769   1
+                4   22522349    3820203   1
+                5   33730296    3028906   8
+                6   32484906    556700  
+                7   32672296    854371  
+                8   25247539    415707  
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   30564282    702595     2
+                2   30503078    647428   4
+                3   30820211    416804   1
+                4   31597302    4099162   1
+                5   47780931    3047311   8
+                6   45530077    670704  
+                7   44581407    986188  
+                8   36187060    745037  
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   24790997    484534  
+                2   24598924    402111   4
+                3   24550249    343589   1
+                4   24655258    442298   1
+                5   24726292    487149   8
+                6   24761540    519027  
+                7   24727504    514552  
+                8   24628247    412134  
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecuci\'on 0 0.45 0,
+        xtick={1,...,8},
+        xticklabels={%
+                im0,
+                im1,
+                im2,
+                im3,
+                im4,
+                im5,
+                im6,
+                im7,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   28418841    850020   2
+                2   28895708    811726   4
+                3   44045511    809697   1
+                4   42679085    1000965   1
+                5   29217961    1004195   8
+                6   29569307    1191794  
+                7   33225167    849956  
+                8   27816226    1065579  
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   41692350    820813   2
+                2   43946220    984498   4
+                3   57440730    531457   1
+                4   54919171    1134924   1
+                5   45328593    971660   8
+                6   45184068    1057872  
+                7   48919214    911853  
+                8   43487093    1159643  
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   24476406    1473229  
+                2   24498680    1239286   4
+                3   24484822    996540   1
+                4   24491088    1354852   1
+                5   24487037    1146640   8
+                6   24510796    1304449  
+                7   24481416    1871065  
+                8   24468028    1078891  
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecuci\'on 0 0 0.55,
+        xtick={1,...,8},
+        xticklabels={%
+                im0,
+                im1,
+                im2,
+                im3,
+                im4,
+                im5,
+                im6,
+                im7,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   31526108    702562    2
+                2   31430922    532904    4
+                3   31477053    540468    1
+                4   31518398    708370    1
+                5   31444924    623973    8
+                6   31415066    525947  
+                7   31606443    1068230  
+                8   31591856    943839  
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   42701606    928519    2
+                2   42827041    1606733    4
+                3   42717442    993588    1
+                4   42821216    1470702    1
+                5   42779676    1231291    8
+                6   42771983    1093894  
+                7   42753211    1315799  
+                8   42629891    915135  
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   24478435    1420975  
+                2   24479642    1575991    4
+                3   24326337    597095    1
+                4   24469094    1251474    1
+                5   24470950    1201560    8
+                6   24477546    1236861  
+                7   24511949    1358153  
+                8   24451416    959606  
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecuci\'on 180 0.7 0.55,
+        xtick={1,...,8},
+        xticklabels={%
+                im0,
+                im1,
+                im2,
+                im3,
+                im4,
+                im5,
+                im6,
+                im7,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   19800319    1031427     2
+                2   19802437    1173691     4
+                3   19790275    913118     1
+                4   19805688    1248618     1
+                5   19752739    799397     8
+                6   19814160    1348834    
+                7   19809950    1315938    
+                8   19817087    1195902    
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   31043056    1059842     2
+                2   31109715    1497160     4
+                3   31008568    751829     1
+                4   31022921    960505     1
+                5   31014987    971343     8
+                6   31092586    1542063    
+                7   31073734    1242674    
+                8   31071977    1260309    
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   24626927    1069040    
+                2   24659762    1193481     4
+                3   24543481    767405     1
+                4   24652505    1259542     1
+                5   24654812    1116930     8
+                6   24633555    1029070    
+                7   24666337    1499975    
+                8   24624921    1306401    
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecuci\'on 0 0.77 0.55,
+        xtick={1,...,8},
+        xticklabels={%
+                im0,
+                im1,
+                im2,
+                im3,
+                im4,
+                im5,
+                im6,
+                im7,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   31600936    1085342      2
+                2   31207421    782540      4
+                3   31385876    1293833      1
+                4   31345881    1439550      1
+                5   31224718    785271      8
+                6   31270348    1020034    
+                7   31203221    577872    
+                8   31541608    565854    
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   42310933    685600      2
+                2   42372386    871387      4
+                3   42358679    830290      1
+                4   42567777    1311671      1
+                5   42326736    689345      8
+                6   42528622    1116739    
+                7   42585326    1281233    
+                8   42332237    835921    
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   24239843    1249717    
+                2   24210446    1138674      4
+                3   24172219    651559      1
+                4   24193889    866032      1
+                5   24232720    1065193      8
+                6   24213728    1132090    
+                7   24231891    1166666    
+                8   24225906    1266685    
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecuci\'on -200 -0.45 -0.2,
+        xtick={1,...,8},
+        xticklabels={%
+                im0,
+                im1,
+                im2,
+                im3,
+                im4,
+                im5,
+                im6,
+                im7,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   20596385    1272730      2
+                2   20823771    1249355      4
+                3   20793842    781446      1
+                4   20586746    1077414      1
+                5   20588215    981448      8
+                6   20586468    1561208    
+                7   20566447    1159858    
+                8   20605436    1472477    
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   31266316    1176176      2
+                2   31249932    1212340      4
+                3   31220682    876313      1
+                4   31268635    1372304      1
+                5   31283208    1607993      8
+                6   31321523    1463389    
+                7   31280907    1660265    
+                8   31288092    1366502    
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   24354943    1245214    
+                2   24294028    925670      4
+                3   24341346    1080891      1
+                4   24350520    1041576      1
+                5   24341903    1375312      8
+                6   24351319    1236907    
+                7   24349927    1374798    
+                8   24334366    1141885    
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \hspace{20mm}\begin{tikzpicture}
+        \begin{axis}[
+        title = {Rendimiento HSL por tamaño},
+        legend style={at={(0.5,1.0)},
+                anchor=north,legend columns=0},
+        width=12.5cm,
+        height=7cm,
+        ylabel= ClockTicks,
+        ymin=0,
+        xlabel= Parametros de ejecuci\'on 0 0 0,
+        xtick={1,...,8},
+        xticklabels={%
+                im6 16x16,
+                im6 200x200,
+                im6 512x512,
+                im6 600x600,
+        },
+        grid=major,
+        ybar
+        ]
+        x|
+        \addplot[
+        fill=blue!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   56390       15215    2
+                2   5430847     383268    4
+                3   37152832    894925  
+                4   49119456    1313582    1
+        };
+       
+        \addplot[
+        fill=red!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   71250       22248    2
+                2   7405763     562556    4
+                3   48664810    932811  
+                4   67055283    1255391    1
+               
+        };
+        \addplot[
+        fill=green!25,
+        draw=black,
+        point meta=y,
+        every node near coord/.style={inner ysep=5pt},
+        error bars/.cd,
+        y dir=both,
+        y explicit     
+        ]
+        table [y error=error] {
+                x   y           error    label
+                1   50579       9940  
+                2   3739154     445693    4
+                3   24476081    1368742
+                4   33591577    1396120    1
+               
+        };
+        \legend{C,asm1,asm2}
+        \draw ({rel axis cs:0,0}|-{axis cs:0,0}) -- ({rel axis cs:1,0}|-{axis cs:0,0});
+        \end{axis}
+        \end{tikzpicture}
+       
+        \section{Conclusión:}
+       
+        Hemos visto en el desarrollo de cada filtro que el hecho de utilizar SSE supone una amplia mejora, en la mayoría de los casos, en comparación con una implementaci\'on tradicional en C(todas
+        compiladas con optimizaciones en nivel 3).
+        Es decir, podemos pensar que si fuese necesario implementar algún tipo de filtro para imágenes de forma eficiente, SSE seria una excelente elección para ello.
+        Notamos además, que en las implementaciones donde se requerían procesar mas de un pixel por iteración, en caso de Merge y Blur, fueron mas rendidoras que aquellas donde se lo hacia de a menor cantidad.
+       
+       
+        \section{Imágenes:}
+       
+        Nos hubiese gustado poner las imágenes de forma prolija aqu\'i abajo, pero por cuestiones de tiempo, tuvimos que omitirlas.
+        \begin{enumerate}
+                \item im0: Verde(0,255,0)
+                \item im1: Azul(0,0,255)
+                \item im2: Gris(150,150,150)
+                \item im4: Gradiente celeste a verde
+               
+                \includegraphics[scale=0.1]{im4}
+               
+                \item im5: Imagen montaña
+               
+                \includegraphics[scale=0.1]{im5}
+               
+                \item im6: Imagen con alto ruidoRGB
+               
+                \includegraphics[scale=0.1]{im6}
+               
+                \item im7: Imagen con 3 columnas rgb intersecadas por 3 filas de otros colores
+               
+                \includegraphics[scale=0.1]{im7}
+               
+               
+        \end{enumerate}
+       
+\end{document}         
